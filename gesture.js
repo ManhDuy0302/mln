@@ -290,18 +290,125 @@ function handleLeftCarousel(landmarks) {
 // Chỉ dùng vùng giữa camera để map ra toàn màn hình
 // Config: CONFIG.CAMERA_MARGIN trong data.js
 
-function mapCameraToScreen(rawValue) {
-    // Lấy margin từ CONFIG (hoặc mặc định 0.15 nếu chưa có)
-    const margin = (typeof CONFIG !== 'undefined' && CONFIG.CAMERA_MARGIN) 
+// Edge scroll state
+let edgeScrollActive = false;
+let lastEdgeScrollTime = 0;
+const EDGE_SCROLL_INTERVAL = 100; // ms giữa mỗi lần auto-scroll
+
+function getMargin() {
+    return (typeof CONFIG !== 'undefined' && CONFIG.CAMERA_MARGIN) 
         ? CONFIG.CAMERA_MARGIN 
         : 0.2;
+}
+
+function mapCameraToScreen(rawValue) {
+    const margin = getMargin();
     
     // Map từ vùng [margin, 1-margin] → [0, 1]
-    // Ví dụ với margin=0.15: 0.15 → 0, 0.5 → 0.5, 0.85 → 1
+    // Ví dụ với margin=0.25: 0.25 → 0, 0.5 → 0.5, 0.75 → 1
     const mapped = (rawValue - margin) / (1 - 2 * margin);
     
     // Clamp để không vượt quá 0-1
     return Math.max(0, Math.min(1, mapped));
+}
+
+// Kiểm tra và xử lý edge scrolling khi ngón tay chạm margin
+function handleEdgeScroll(rawX, rawY) {
+    const margin = getMargin();
+    const now = Date.now();
+    
+    // Throttle edge scroll
+    if (now - lastEdgeScrollTime < EDGE_SCROLL_INTERVAL) return;
+    
+    // Detect edge zones (trong vùng margin)
+    // Lưu ý: Camera bị mirror nên trái/phải đảo ngược
+    const inLeftEdge = rawX > (1 - margin);   // Tay bên phải camera = trái màn hình
+    const inRightEdge = rawX < margin;         // Tay bên trái camera = phải màn hình
+    const inTopEdge = rawY < margin;
+    const inBottomEdge = rawY > (1 - margin);
+    
+    // ⭐ Tính tốc độ scroll với EXPONENTIAL EASING
+    // Càng xa khỏi biên (sâu vào margin) → tốc độ tăng NHANH hơn (bậc 2)
+    // depth: 0 (vừa chạm edge) → 1 (sát mép camera)
+    // speed: minSpeed → maxSpeed (theo curve exponential)
+    const calcSpeed = (value, threshold, minSpeed, maxSpeed) => {
+        // Tính độ sâu vào margin (0 = vừa chạm, 1 = sát mép camera)
+        const depth = Math.abs(value - threshold) / margin;
+        // Clamp depth từ 0-1
+        const clampedDepth = Math.min(1, Math.max(0, depth));
+        // Exponential easing: depth^2 để tăng tốc mạnh hơn khi sâu hơn
+        const easedDepth = clampedDepth * clampedDepth;
+        // Map từ minSpeed đến maxSpeed
+        return minSpeed + easedDepth * (maxSpeed - minSpeed);
+    };
+    
+    let scrolled = false;
+    
+    // === CONTEXT: TIMELINE (Pan camera) ===
+    if (currentGestureContext === GESTURE_CONTEXT.TIMELINE && !isInDetailView) {
+        const PAN_MIN = 2;   // Tốc độ tối thiểu (vừa chạm edge)
+        const PAN_MAX = 20;  // Tốc độ tối đa (sát mép camera)
+        
+        if (inLeftEdge) {
+            const speed = calcSpeed(rawX, 1 - margin, PAN_MIN, PAN_MAX);
+            targetPan.x -= speed;
+            scrolled = true;
+        }
+        if (inRightEdge) {
+            const speed = calcSpeed(rawX, margin, PAN_MIN, PAN_MAX);
+            targetPan.x += speed;
+            scrolled = true;
+        }
+        if (inTopEdge) {
+            const speed = calcSpeed(rawY, margin, PAN_MIN, PAN_MAX);
+            targetPan.y += speed;
+            scrolled = true;
+        }
+        if (inBottomEdge) {
+            const speed = calcSpeed(rawY, 1 - margin, PAN_MIN, PAN_MAX);
+            targetPan.y -= speed;
+            scrolled = true;
+        }
+    }
+    
+    // === CONTEXT: CAROUSEL (Navigate cards) ===
+    if (currentGestureContext === GESTURE_CONTEXT.CAROUSEL) {
+        // Chỉ xử lý trái/phải, với cooldown dài hơn để tránh lướt quá nhanh
+        if (now - lastEdgeScrollTime < 400) return;
+        
+        if (inLeftEdge) {
+            navigateCards(-1); // Previous card
+            scrolled = true;
+        }
+        if (inRightEdge) {
+            navigateCards(1);  // Next card
+            scrolled = true;
+        }
+    }
+    
+    // === CONTEXT: DETAIL (Scroll content) ===
+    if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
+        const SCROLL_MIN = 3;   // Tốc độ tối thiểu
+        const SCROLL_MAX = 25;  // Tốc độ tối đa (sát mép = cuộn rất nhanh)
+        
+        if (inTopEdge) {
+            const speed = calcSpeed(rawY, margin, SCROLL_MIN, SCROLL_MAX);
+            scrollVelocity = -speed;
+            scrolled = true;
+        }
+        if (inBottomEdge) {
+            const speed = calcSpeed(rawY, 1 - margin, SCROLL_MIN, SCROLL_MAX);
+            scrollVelocity = speed;
+            scrolled = true;
+        }
+    }
+    
+    if (scrolled) {
+        lastEdgeScrollTime = now;
+        edgeScrollActive = true;
+    } else {
+        edgeScrollActive = false;
+    }
 }
 
 function moveCursor(indexFingerLandmark) {
@@ -311,16 +418,26 @@ function moveCursor(indexFingerLandmark) {
         cursor.style.display = 'block';
     }
     
+    // Lưu raw values để detect edge
+    const rawX = indexFingerLandmark.x;
+    const rawY = indexFingerLandmark.y;
+    
     // Map từ vùng giữa camera ra toàn màn hình
-    const normalizedX = mapCameraToScreen(indexFingerLandmark.x);
-    const normalizedY = mapCameraToScreen(indexFingerLandmark.y);
+    const normalizedX = mapCameraToScreen(rawX);
+    const normalizedY = mapCameraToScreen(rawY);
     
     // Mirror X vì camera bị lật ngang (selfie mode)
     cursorTargetX = (1 - normalizedX) * window.innerWidth;
     cursorTargetY = normalizedY * window.innerHeight;
     
+    // ⭐ Edge scrolling: khi ngón tay chạm margin, tự động lướt
+    handleEdgeScroll(rawX, rawY);
+    
     checkNodeHover(cursorX, cursorY);
+    
+    // Visual feedback khi edge scrolling
     cursor.classList.toggle('active', !!hoveredNode);
+    cursor.classList.toggle('edge-scrolling', edgeScrollActive);
 }
 
 // ==========================================

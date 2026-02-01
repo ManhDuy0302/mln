@@ -32,7 +32,7 @@ const CONFIG = {
     // 0.15 = 15% margin → Vùng camera từ 15%-85% sẽ map ra 0%-100% màn hình
     // Tăng giá trị = vùng nhỏ hơn, di chuyển ít hơn = nhạy hơn
     // Giảm giá trị = vùng lớn hơn, cần di chuyển nhiều hơn
-    CAMERA_MARGIN: 0.25
+    CAMERA_MARGIN: 0.33
 };
 
 // Prevent init3D from running multiple times

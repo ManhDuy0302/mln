@@ -1744,6 +1744,7 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // Mouse down - start drag or select
+let lastClickTime = 0;
 document.addEventListener('mousedown', (e) => {
     if (isInDetailView) return;
     if (e.target.closest('#controls') || e.target.closest('#header') || e.target.closest('button')) return;
@@ -1752,9 +1753,21 @@ document.addEventListener('mousedown', (e) => {
 
     // Check if clicking on a node
     if (hoveredNode) {
+        const now = Date.now();
         selectedNode = hoveredNode;
         showNodeInfo(selectedNode);
-        document.getElementById('status').textContent = `Đã chọn: ${selectedNode.label}`;
+        
+        const status = document.getElementById('status');
+        if (status) status.textContent = `Đã chọn: ${selectedNode.label || selectedNode.title}`;
+        
+        // ⭐ FIX: Double-click nhanh (< 400ms) hoặc click lần 2 vào cùng node → mở detail
+        if (now - lastClickTime < 400) {
+            const nodeMesh = nodeMeshes.find(m => m.userData.id === selectedNode.id);
+            animateNodeZoom(nodeMesh, () => {
+                openDetailView(selectedNode);
+            });
+        }
+        lastClickTime = now;
     } else {
         isMouseDragging = true;
         document.body.style.cursor = 'grabbing';
@@ -1772,16 +1785,14 @@ document.addEventListener('dblclick', (e) => {
     if (isInDetailView) return;
     if (e.target.closest('#controls') || e.target.closest('#header') || e.target.closest('button')) return;
 
-    if (selectedNode && selectedNode.content) {
-        const fullNode = timelineData.nodes.find(n => n.id === selectedNode.id);
-        if (fullNode) {
-            // Find mesh and animate
-            const nodeMesh = nodeMeshes.find(m => m.userData.id === fullNode.id);
-            animateNodeZoom(nodeMesh, () => {
-                openDetailView(fullNode);
-            });
-
-        }
+    // ⭐ FIX: Không cần kiểm tra .content, dùng trực tiếp selectedNode hoặc hoveredNode
+    const nodeToOpen = selectedNode || hoveredNode;
+    if (nodeToOpen) {
+        // Find mesh and animate
+        const nodeMesh = nodeMeshes.find(m => m.userData.id === nodeToOpen.id);
+        animateNodeZoom(nodeMesh, () => {
+            openDetailView(nodeToOpen);
+        });
     }
 });
 

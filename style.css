@@ -1249,6 +1249,27 @@
             animation: cursor-ripple 0.5s ease-out;
         }
 
+        /* Edge scrolling indicator - khi ngón tay chạm margin camera */
+        #virtual-cursor.edge-scrolling {
+            border-color: #FF6B6B;
+            box-shadow: 0 0 25px rgba(255, 107, 107, 0.8), 0 0 50px rgba(255, 107, 107, 0.4);
+            animation: edge-pulse 0.5s ease-in-out infinite;
+        }
+
+        #virtual-cursor.edge-scrolling::before {
+            background: #FF6B6B;
+            box-shadow: 0 0 15px rgba(255, 107, 107, 1);
+        }
+
+        @keyframes edge-pulse {
+            0%, 100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.15);
+            }
+        }
+
         /* Zoom indicator (optional visual feedback) */
         .zoom-indicator {
             position: fixed;
