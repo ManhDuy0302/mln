@@ -286,14 +286,39 @@ function handleLeftCarousel(landmarks) {
 // ==========================================
 // CURSOR MOVEMENT
 // ==========================================
+// Camera Zone Mapping
+// Chỉ dùng vùng giữa camera để map ra toàn màn hình
+// Config: CONFIG.CAMERA_MARGIN trong data.js
+
+function mapCameraToScreen(rawValue) {
+    // Lấy margin từ CONFIG (hoặc mặc định 0.15 nếu chưa có)
+    const margin = (typeof CONFIG !== 'undefined' && CONFIG.CAMERA_MARGIN) 
+        ? CONFIG.CAMERA_MARGIN 
+        : 0.2;
+    
+    // Map từ vùng [margin, 1-margin] → [0, 1]
+    // Ví dụ với margin=0.15: 0.15 → 0, 0.5 → 0.5, 0.85 → 1
+    const mapped = (rawValue - margin) / (1 - 2 * margin);
+    
+    // Clamp để không vượt quá 0-1
+    return Math.max(0, Math.min(1, mapped));
+}
+
 function moveCursor(indexFingerLandmark) {
     const cursor = document.getElementById('virtual-cursor');
     if (!cursorEnabled) {
         cursorEnabled = true;
         cursor.style.display = 'block';
     }
-    cursorTargetX = (1 - indexFingerLandmark.x) * window.innerWidth;
-    cursorTargetY = indexFingerLandmark.y * window.innerHeight;
+    
+    // Map từ vùng giữa camera ra toàn màn hình
+    const normalizedX = mapCameraToScreen(indexFingerLandmark.x);
+    const normalizedY = mapCameraToScreen(indexFingerLandmark.y);
+    
+    // Mirror X vì camera bị lật ngang (selfie mode)
+    cursorTargetX = (1 - normalizedX) * window.innerWidth;
+    cursorTargetY = normalizedY * window.innerHeight;
+    
     checkNodeHover(cursorX, cursorY);
     cursor.classList.toggle('active', !!hoveredNode);
 }
