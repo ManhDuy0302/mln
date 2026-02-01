@@ -1,0 +1,16 @@
+# Ignore old folder
+Mê Ry Chí Mớt/
+
+# Python
+*.pyc
+__pycache__/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+

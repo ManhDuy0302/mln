@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRIẾT HỌC MARX-LENIN</title>
+
+    <!-- Three.js & MediaPipe -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Background Music -->
+    <audio id="bg-music" src="dang.mp3" loop preload="auto"></audio>
+
+    <!-- Audio Toggle Button -->
+    <button id="audio-btn" onclick="toggleAudio()" title="Bật/Tắt nhạc">🔇</button>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-overlay">
+        <div id="welcome-container">
+            <h1 id="welcome-title">
+                <span class="title-char">☭</span>
+                <span class="title-char">&nbsp;</span>
+                <span class="title-char">T</span>
+                <span class="title-char">R</span>
+                <span class="title-char">I</span>
+                <span class="title-char">Ế</span>
+                <span class="title-char">T</span>
+                <span class="title-char">&nbsp;</span>
+                <span class="title-char">H</span>
+                <span class="title-char">Ọ</span>
+                <span class="title-char">C</span>
+                <span class="title-char">&nbsp;</span>
+                <span class="title-char">M</span>
+                <span class="title-char">A</span>
+                <span class="title-char">R</span>
+                <span class="title-char">X</span>
+                <span class="title-char">-</span>
+                <span class="title-char">L</span>
+                <span class="title-char">E</span>
+                <span class="title-char">N</span>
+                <span class="title-char">I</span>
+                <span class="title-char">N</span>
+            </h1>
+            <p id="welcome-subtitle">Khám phá dòng chảy lịch sử</p>
+
+            <div id="welcome-options">
+                <button class="welcome-btn" onclick="startGestureMode()">
+                    <span class="btn-icon">🖐</span>
+                    <span class="btn-text">Trải nghiệm cử chỉ tay</span>
+                    <span class="btn-desc">Điều khiển bằng camera</span>
+                </button>
+
+                <button class="welcome-btn" onclick="startMouseMode()">
+                    <span class="btn-icon">🖱️</span>
+                    <span class="btn-text">Dùng con trỏ</span>
+                    <span class="btn-desc">Điều khiển bằng chuột</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+    <!-- Lớp phủ ảnh nền trang trí -->
+    <div class="bg-overlay"></div>
+
+    <!-- Header -->
+    <div id="header" style="display: none;">
+        <div id="title">☭ TRIẾT HỌC MARX-LENIN</div>
+        <canvas id="camera-preview" style="display: none;"></canvas>
+    </div>
+
+    <!-- Carousel Cards Container -->
+    <div id="node-cards-container">
+
+
+        <div id="node-cards-wrapper">
+            <div class="node-card" data-node-id="1">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#8B0000,#D32F2F);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        ☭</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">Trước 1840s – 1890s</h3>
+                    <p class="card-desc">Sự ra đời và hoàn thiện của chủ nghĩa Marx</p>
+                </div>
+            </div>
+
+            <div class="node-card" data-node-id="2">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#B30000,#FF6B6B);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        ⚒️</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">1900s – 1920s</h3>
+                    <p class="card-desc">Từ lý luận Marx đến thực tiễn Lenin</p>
+                </div>
+            </div>
+
+            <div class="node-card" data-node-id="3">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#FFD700,#FFA500);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        📚</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">1920s – 1945</h3>
+                    <p class="card-desc">Củng cố mô hình XHCN và ảnh hưởng trong phong trào cách mạng thế giới</p>
+                </div>
+            </div>
+
+            <div class="node-card" data-node-id="4">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#4ECDC4,#44A08D);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        🌏</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">1947 – 1970s</h3>
+                    <p class="card-desc">Mở rộng hệ thống XHCN trong bối cảnh Chiến tranh Lạnh</p>
+                </div>
+            </div>
+
+            <div class="node-card" data-node-id="5">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        🔄</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">1980s – 2000s</h3>
+                    <p class="card-desc">Khủng hoảng và tan rã của hệ thống XHCN. Tái định hình con đường phát triển</p>
+                </div>
+            </div>
+
+            <div class="node-card" data-node-id="6">
+                <div class="card-image">
+                    <div
+                        style="width:100%;height:100%;background:linear-gradient(135deg,#f093fb,#f5576c);display:flex;align-items:center;justify-content:center;font-size:48px;">
+                        🌐</div>
+                </div>
+                <div class="card-content">
+                    <h3 class="card-title">2000s – Nay</h3>
+                    <p class="card-desc">Tác động đương đại của chủ nghĩa Marx–Lenin trong bối cảnh toàn cầu</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Vertical Gesture Panel (Right Side)    -->
+    <div id="gesture-panel">
+        <div id="controls-vertical">
+            <div class="gesture-hint">
+                <span class="gesture-icon">👈</span>
+                <span>Trái: Di chuyển</span>
+            </div>
+            <div class="gesture-hint">
+                <span class="gesture-icon">☝️</span>
+                <span>P1: Cursor</span>
+            </div>
+            <div class="gesture-hint">
+                <span class="gesture-icon">✌️</span>
+                <span>P2: Chọn</span>
+            </div>
+            <div class="gesture-hint">
+                <span class="gesture-icon">🤏</span>
+                <span>Pinch: Zoom+</span>
+            </div>
+            <div class="gesture-hint">
+                <span class="gesture-icon">✊</span>
+                <span>Đấm: Zoom-</span>
+            </div>
+            <div class="gesture-hint">
+                <span class="gesture-icon">🖖</span>
+                <span>3 ngón: Quay</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle Cursor Button (Old - will be hidden) -->
+    <button id="btn-toggle-cursor-old" onclick="toggleCursor()" style="display: none;">👆 Con trỏ: Tắt</button>
+    <button id="btn-toggle-cursor-standalone" onclick="toggleCursor()" style="display: none;">👆 Con trỏ: Tắt</button>
+
+    <!-- Virtual Cursor -->
+    <div id="virtual-cursor"></div>
+
+    <!-- Start Button (Hidden - replaced by welcome screen) -->
+    <button id="btnStart" onclick="startSystem()" style="display: none;">🖐 START WITH GESTURES</button>
+
+    <!-- Status -->
+    <!-- Status removed -->
+
+    <!-- Node Info Panel -->
+    <div id="node-info">
+        <h3 id="node-title">Node Title</h3>
+        <p id="node-desc">Node description goes here</p>
+    </div>
+
+    <!-- Controls Hint (Old - Hidden) -->
+    <div id="controls" style="display: none;">
+        <div class="gesture-hint">
+            <span class="gesture-icon">🖐️</span>
+            <span>Trái: Di chuyển</span>
+        </div>
+        <div class="gesture-hint">
+            <span class="gesture-icon">☝️</span>
+            <span>1 ngón: Cursor</span>
+        </div>
+        <div class="gesture-hint">
+            <span class="gesture-icon">✌️</span>
+            <span>2 ngón: Chọn</span>
+        </div>
+        <div class="gesture-hint">
+            <span class="gesture-icon">🤏</span>
+            <span>Nhón: Zoom+</span>
+        </div>
+        <div class="gesture-hint">
+            <span class="gesture-icon">✊</span>
+            <span>Đấm: Zoom-</span>
+        </div>
+        <div class="gesture-hint">
+            <span class="gesture-icon">🖖</span>
+            <span>3 ngón: Back</span>
+        </div>
+    </div>
+
+    <!-- Debug -->
+    <div id="debug"></div>
+
+    <!-- Detail View Overlay (Drill-down) -->
+    <div id="detail-overlay">
+        <div id="detail-container">
+            <!-- Title -->
+            <h1 id="detail-title">Thử thách</h1>
+
+            <!-- Quote / Description -->
+            <div id="detail-quote">
+                Không có hành trình nào mà không có thử thách. Đây là giai đoạn đối mặt với những khó khăn, học cách
+                thích nghi và tìm ra giải pháp sáng tạo.
+            </div>
+
+            <!-- Events Timeline -->
+            <div class="detail-section" id="events-section">
+                <h3 class="detail-section-title">📅 Sự kiện</h3>
+                <div id="detail-events">
+                    <!-- Events will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Sub-nodes -->
+            <div class="detail-section" id="subnodes-section">
+                <h3 class="detail-section-title">🌿 Nhánh con</h3>
+                <div id="detail-subnodes">
+                    <!-- Sub-nodes will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Removed redundant detail-gesture-hint -->
+    </div>
+
+
+    <!-- Global Back Button (Bottom-Right) -->
+    <button id="global-back-btn" onclick="goBack()" style="display: none;">
+        ← Quay lại
+    </button>
+
+    <!-- Conclusion Button (Bottom-Left) -->
+    <button id="conclusion-btn" onclick="openConclusionOverlay()" style="display: none;">
+        Kết luận
+    </button>
+
+    <!-- Conclusion Overlay -->
+    <div id="conclusion-overlay">
+        <div id="conclusion-container">
+            <h1 id="conclusion-title">Kết luận</h1>
+            <div id="conclusion-content">
+                <!-- Nội dung kết luận sẽ được import từ data.js -->
+                <p>Nội dung kết luận cho giai đoạn này sẽ được thêm sau...</p>
+            </div>
+            <button id="conclusion-close-btn" onclick="closeConclusionOverlay()">✕ Đóng</button>
+        </div>
+    </div>
+
+    <!-- Copyright -->
+    <div id="copyright">© Marx-lenin by Group 8 + 5</div>
+
+    <!-- Hidden Video -->
+    <video class="video-hidden input_video"></video>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+
+    <!-- GSAP Title Scatter Animation -->
+    <script>
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function () {
+            const chars = document.querySelectorAll('.title-char');
+
+            // Helper function to get random value
+            function getRandom(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            // Set initial state - scattered positions
+            chars.forEach((char, index) => {
+                gsap.set(char, {
+                    x: getRandom(-600, 600),
+                    y: getRandom(-400, 400),
+                    rotation: getRandom(-720, 720),
+                    scale: 0,
+                    opacity: 0
+                });
+            });
+
+            // Create timeline for animation
+            const tl = gsap.timeline({
+                delay: 0.3
+            });
+
+            // Animate each character to its final position
+            tl.to(chars, {
+                x: 0,
+                y: 0,
+                rotation: 0,
+                scale: 1,
+                opacity: 1,
+                duration: 1.2,
+                ease: "power4.out",
+                stagger: {
+                    each: 0.05,
+                    from: "center"
+                }
+            });
+
+            // Add glow pulse after assembly
+            tl.to(chars, {
+                textShadow: "0 0 30px rgba(255, 204, 0, 1), 0 0 60px rgba(255, 204, 0, 0.8)",
+                duration: 0.3,
+                stagger: 0.02
+            });
+
+            tl.to(chars, {
+                textShadow: "0 0 20px rgba(255, 204, 0, 0.5)",
+                duration: 0.5
+            });
+        });
+    </script>
+</body>
+
+</html>
