@@ -20,13 +20,25 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', '*')
         super().end_headers()
 
+class MyTCPServer(socketserver.TCPServer):
+    def handle_error(self, request, client_address):
+        # Silence WinError 10054 (Connection reset by peer)
+        import sys
+        import socket
+        cls, value, traceback = sys.exc_info()
+        if cls is ConnectionResetError or (isinstance(value, socket.error) and value.errno == 10054):
+            pass
+        else:
+            super().handle_error(request, client_address)
+
 def main():
     base_dir = Path(__file__).parent
     os.chdir(base_dir)
     
     Handler = MyHTTPRequestHandler
     
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    # Use custom server to handle socket errors gracefully
+    with MyTCPServer(("", PORT), Handler) as httpd:
         url = f"http://localhost:{PORT}/index.html"
         print("=" * 60)
         print("SERVER DA KHOI DONG - MERRY CHRISTMAS!")

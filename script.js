@@ -196,6 +196,10 @@ function exitDetailView() {
 
     currentGestureContext = GESTURE_CONTEXT.TIMELINE;
 
+    // ⭐ Reset gesture state when switching context (fixes lag on return)
+    if (controlMode === 'gesture' && typeof resetGestureState === 'function') {
+        resetGestureState();
+    }
 }
 
 // ==========================================
@@ -1138,342 +1142,89 @@ function animate() {
 // ==========================================
 // 10. HAND GESTURE RECOGNITION
 // ==========================================
-function isFingerExtended(landmarks, fingerTip, fingerPIP) {
-    const wrist = landmarks[0];
-    const tipDist = Math.hypot(landmarks[fingerTip].x - wrist.x, landmarks[fingerTip].y - wrist.y);
-    const pipDist = Math.hypot(landmarks[fingerPIP].x - wrist.x, landmarks[fingerPIP].y - wrist.y);
-    return tipDist > pipDist * 1.1;
-}
+// --- GESTURE UTILITIES (Used by gesture.js and Mouse Mode) ---
 
-function countExtendedFingers(landmarks) {
-    return {
-        index: isFingerExtended(landmarks, 8, 6),
-        middle: isFingerExtended(landmarks, 12, 10),
-        ring: isFingerExtended(landmarks, 16, 14),
-        pinky: isFingerExtended(landmarks, 20, 18)
-    };
-}
-
-function getPinchDistance(landmarks) {
-    return Math.hypot(
-        landmarks[4].x - landmarks[8].x,
-        landmarks[4].y - landmarks[8].y
-    );
-}
-
-function isOpenHand(landmarks) {
-    const fingers = countExtendedFingers(landmarks);
-    // Check thumb is also extended (thumb tip far from index base)
-    const thumbTip = landmarks[4];
-    const indexBase = landmarks[5];
-    const thumbExtended = Math.hypot(thumbTip.x - indexBase.x, thumbTip.y - indexBase.y) > 0.1;
-
-    // All 5 fingers must be extended for open hand
-    return thumbExtended && fingers.index && fingers.middle && fingers.ring && fingers.pinky;
-}
-
-// Check if only pointing with index finger (1 finger)
-function isPointingFinger(landmarks) {
-    const fingers = countExtendedFingers(landmarks);
-    return fingers.index && !fingers.middle && !fingers.ring && !fingers.pinky;
-}
-
-// ==========================================
-// PROCESS HANDS - NEW TWO-HAND SYSTEM
-// ==========================================
-function processHands(results) {
-    // Chỉ xử lý gesture khi đang ở gesture mode
-    if (controlMode !== 'gesture') return;
-
-    leftHand = null;
-    rightHand = null;
-
-    if (results.multiHandLandmarks && results.multiHandedness) {
-        results.multiHandLandmarks.forEach((landmarks, i) => {
-            const handedness = results.multiHandedness[i].label;
-            if (handedness === 'Left') {
-                rightHand = landmarks;
-            } else {
-                leftHand = landmarks;
-            }
-        });
-    }
-
-    // === CRITICAL: Reset state when hands lost (Fixes jumping issue) ===
-    if (!leftHand && !rightHand) {
-        prevPanPos = null;
-        isHandActive = false;
-        return;
-    }
-    isHandActive = true;
-
-    // =====================
-    // CONTEXT AWARE HANDLING
-    // =====================
-
-    if (currentGestureContext === GESTURE_CONTEXT.CAROUSEL) {
-        if (leftHand) handleLeftCarousel(leftHand);
-        if (rightHand) handleRightHand(rightHand);
-    }
-
-    else if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
-        if (leftHand) handleLeftDetail(leftHand);
-        if (rightHand) handleRightHand(rightHand);
-    }
-
-    else if (currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
-        if (leftHand) handleLeftTimeline(leftHand);
-        if (rightHand) handleRightHand(rightHand);
-    }
-}
-
-
-
-// ==========================================
-// XỬ LÝ TAY TRÁI - PAN
-// ==========================================
-function handleLeftHand(landmarks) {
-    // Unused legacy function, keeping as placeholder or removing
-    return '';
-}
-
-// ==========================================
-// XỬ LÝ TAY PHẢI - CURSOR + ACTIONS
-// ==========================================
-function handleRightHand(landmarks) {
-    const index = landmarks[8];
-    const middle = landmarks[12];
-    const ring = landmarks[16];
-    const pinky = landmarks[20];
-    const thumb = landmarks[4];
-
-    const fingers = {
-        index: index.y < landmarks[6].y,
-        middle: middle.y < landmarks[10].y,
-        ring: ring.y < landmarks[14].y,
-        pinky: pinky.y < landmarks[18].y
-    };
-
-    // Check thumb extended (distance from index base)
-    const thumbExtended = Math.hypot(thumb.x - landmarks[5].x, thumb.y - landmarks[5].y) > 0.1;
-
-    // Check if fist (all fingers closed)
-    const isFistGesture = !fingers.index && !fingers.middle && !fingers.ring && !fingers.pinky;
-
-    // Check if thumb up only (thumb extended, others closed)
-    const isThumbUp = thumbExtended && !fingers.index && !fingers.middle && !fingers.ring && !fingers.pinky;
-
-    // === 1. 🖖 3 NGÓN → Back theo context ===
-    if (fingers.index && fingers.middle && fingers.ring && !fingers.pinky) {
-        const now = Date.now();
-        if (now - lastBackTime < CONFIG.BACK_COOLDOWN) return '🖖 ĐANG CHỜ...';
-        lastBackTime = now;
-
-        // Back dựa theo context hiện tại
-        if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
-            exitDetailView();
-            return '🖖 BACK: Detail → Timeline';
-        } else if (currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
-            exitTimelineView();
-            return '🖖 BACK: Timeline → Carousel';
-        } else if (currentGestureContext === GESTURE_CONTEXT.CAROUSEL) {
-            resetToWelcome();
-            return '🖖 BACK: Carousel → Welcome';
-        }
-        return '🖖 3 NGÓN: KHÔNG CÓ ACTION';
-    }
-
-    // === 2. ✊ NẮM ĐẤM → Zoom Out (Timeline only) ===
-    if (isFistGesture && currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
-        targetZoom = Math.max(CONFIG.zoomMin, targetZoom - CONFIG.ZOOM_OUT_SPEED);
-        return '✊ NẮM ĐẤM: ZOOM OUT';
-    }
-
-    // === 3. 👍 NGÓN CÁI → Zoom In (Timeline only) ===
-    if (isThumbUp && currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
-        targetZoom = Math.min(CONFIG.zoomMax, targetZoom + CONFIG.ZOOM_IN_SPEED);
-        return '👍 NGÓN CÁI: ZOOM IN';
-    }
-
-    // === 4. ✌️ 2 NGÓN → Chọn/Vào node ===
-    if (fingers.index && fingers.middle && !fingers.ring && !fingers.pinky) {
-        return selectOrEnterNode();
-    }
-
-    // === 5. ☝️ NGÓN TRỎ → Di chuyển cursor ===
-    if (fingers.index && !fingers.middle && !fingers.ring && !fingers.pinky) {
-        moveCursor(index);
-        return '☝️ NGÓN TRỎ: DI CHUYỂN CURSOR';
-    }
-
-    // Nếu có ngón trỏ duỗi (bất kể cử chỉ nào), vẫn cập nhật cursor
-    if (fingers.index) {
-        moveCursor(index);
-    }
-
-    return '';
-}
-function handleLeftDetail(landmarks) {
-    // Bàn tay mở (5 ngón) để scroll
-    if (isOpenHand(landmarks)) {
-        const palm = landmarks[9];
-        if (!prevPanPos) {
-            prevPanPos = palm;
-            return;
-        }
-
-        const dy = palm.y - prevPanPos.y;
-        // Use scrollVelocity for momentum effect
-        scrollVelocity = dy * 25;  // Tăng sensitivity
-        prevPanPos = palm;
-        return;
-    }
-
-    // Reset khi không phải open hand
-    prevPanPos = null;
-}
-
-function handleLeftTimeline(landmarks) {
-    if (!isOpenHand(landmarks)) {
-        prevPanPos = null;  // Reset when not open hand
-        return;
-    }
-
-    const palm = landmarks[9];
-    if (!prevPanPos) {
-        prevPanPos = palm;
-        return;
-    }
-
-    // Use targetPan for LERP smoothing
-    targetPan.x += (prevPanPos.x - palm.x) * 200;
-    targetPan.y += (palm.y - prevPanPos.y) * 150;
-
-    prevPanPos = palm;
-}
-
-
-function handleLeftCarousel(landmarks) {
-    if (!isOpenHand(landmarks)) {
-        prevPanPos = null;  // Reset when not open hand
-        return;
-    }
-
-    const palm = landmarks[9];
-    if (!prevPanPos) {
-        prevPanPos = palm;
-        return;
-    }
-
-    const dx = palm.x - prevPanPos.x;
-
-    // Use CONFIG threshold and cooldown
-    const now = Date.now();
-    if (now - lastSwipeTime < CONFIG.SWIPE_COOLDOWN) {
-        prevPanPos = palm;
-        return;
-    }
-
-    if (Math.abs(dx) > CONFIG.SWIPE_THRESHOLD) {
-        const direction = dx > 0 ? -1 : 1;
-        navigateCards(direction);
-        lastSwipeTime = now;
-
-        // Visual shake feedback
-        const container = document.getElementById('node-cards-container');
-        container.classList.add('swipe-shake');
-        setTimeout(() => container.classList.remove('swipe-shake'), 400);
-    }
-
-    prevPanPos = palm;
-}
-
-
-// ==========================================
-// DI CHUYỂN CURSOR ẢO
-// ==========================================
 function moveCursor(indexFingerLandmark) {
     const cursor = document.getElementById('virtual-cursor');
+    if (!cursor) return;
 
-    // Tự động bật cursor khi dùng ngón trỏ
+    // Auto-enable cursor when moving
     if (!cursorEnabled) {
         cursorEnabled = true;
         cursor.style.display = 'block';
     }
 
-    // Chuyển đổi tọa độ (mirrored) - Set TARGET for LERP
+    // Mirrored coordinates for natural feel
     cursorTargetX = (1 - indexFingerLandmark.x) * window.innerWidth;
     cursorTargetY = indexFingerLandmark.y * window.innerHeight;
 
-    // Kiểm tra hover node
+    // Update hover state
     checkNodeHover(cursorX, cursorY);
     cursor.classList.toggle('active', !!hoveredNode);
 }
 
-// ==========================================
-// CHỌN HOẶC VÀO NODE
-// ==========================================
 function selectOrEnterNode() {
-    if (!cursorX || !cursorY) {
-        return '✌️ 2 NGÓN: DI CHUYỂN CURSOR ĐẾN NODE';
+    if (!cursorX || !cursorY) return;
+
+    // Visual feedback
+    const cursor = document.getElementById('virtual-cursor');
+    if (cursor) {
+        cursor.classList.add('clicking');
+        setTimeout(() => cursor.classList.remove('clicking'), 300);
     }
 
-    // Visual click feedback on cursor
-    const cursor = document.getElementById('virtual-cursor');
-    cursor.classList.add('clicking');
-    setTimeout(() => cursor.classList.remove('clicking'), 300);
+    if (hoveredNode) {
+        selectedNode = hoveredNode;
+        showNodeInfo(selectedNode);
 
-    // Chuyển đổi vị trí cursor sang tọa độ 3D
+        // Click again (or double gesture) to enter
+        const now = Date.now();
+        if (now - lastSelectTime < 800) {
+            const fullNode = timelineData.nodes.find(n => n.id === selectedNode.id);
+            if (fullNode) {
+                const nodeMesh = nodeMeshes.find(m => m.userData.id === fullNode.id);
+                animateNodeZoom(nodeMesh, () => {
+                    openDetailView(fullNode);
+                });
+            }
+        }
+        lastSelectTime = now;
+        return `🎯 Selected: ${selectedNode.label}`;
+    }
+    return '';
+}
+let lastSelectTime = 0;
+
+function checkNodeHover(screenX, screenY) {
+    if (!camera || !scene || !renderer) return;
+
     const rect = renderer.domElement.getBoundingClientRect();
-    const x = (cursorX / rect.width) * 2 - 1;
-    const y = -(cursorY / rect.height) * 2 + 1;
+    const x = ((screenX - rect.left) / rect.width) * 2 - 1;
+    const y = -((screenY - rect.top) / rect.height) * 2 + 1;
 
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera({ x, y }, camera);
     const intersects = raycaster.intersectObjects(nodeMeshes);
 
     if (intersects.length > 0) {
-        const node = intersects[0].object.userData;
-
-        if (isInDetailView) {
-            // Trong detail view: có thể chọn sub-node (logic tùy chỉnh sau)
-            return '✌️ 2 NGÓN: TRONG CHI TIẾT';
-        } else {
-            // Ngoài: vào detail view với animation
-            const nodeMesh = nodeMeshes.find(m => m.userData.id === node.id);
-            animateNodeZoom(nodeMesh, () => {
-                openDetailView(node);
-            });
-            return `✌️ 2 NGÓN: MỞ "${node.title || node.label}"`;
-        }
-    }
-
-    return '✌️ 2 NGÓN: KHÔNG CÓ NODE';
-}
-
-function checkNodeHover(screenX, screenY) {
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2(
-        (screenX / window.innerWidth) * 2 - 1,
-        -(screenY / window.innerHeight) * 2 + 1
-    );
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(nodeMeshes);
-
-    if (intersects.length > 0) {
         hoveredNode = intersects[0].object.userData;
+        document.body.style.cursor = 'pointer';
     } else {
         hoveredNode = null;
+        document.body.style.cursor = 'default';
     }
 }
 
 function showNodeInfo(node) {
     const infoPanel = document.getElementById('node-info');
+    if (!infoPanel) return;
+
     document.getElementById('node-title').textContent = node.label;
-    document.getElementById('node-desc').textContent = node.desc;
+    document.getElementById('node-desc').textContent = node.description || node.desc || '';
     infoPanel.style.display = 'block';
 }
+
+// --- GESTURE RECOGNITION MOVED TO gesture.js ---
 
 // ==========================================
 // CAROUSEL & MODE SWITCHING
@@ -1512,7 +1263,7 @@ function initCarouselControls() {
     const container = document.getElementById('node-cards-container');
     const cards = document.querySelectorAll('.node-card');
 
-    // 1. CLICK LOGIC (Smart Click)
+    // 1. CLICK/TOUCH LOGIC (Smart Click)
     cards.forEach((card, index) => {
         card.onclick = (e) => {
             // Prevent click if we just dragged
@@ -1533,12 +1284,11 @@ function initCarouselControls() {
         };
     });
 
-    // 2. DRAG LOGIC (Swipe)
+    // 2. DRAG LOGIC (Mouse)
     container.onmousedown = (e) => {
         isDragging = true;
         startX = e.clientX;
         container.classList.add('grabbing');
-        // Disable transition during drag for responsiveness
         document.getElementById('node-cards-wrapper').style.transition = 'none';
     };
 
@@ -1546,43 +1296,44 @@ function initCarouselControls() {
         if (!isDragging) return;
         isDragging = false;
         container.classList.remove('grabbing');
-
-        // Re-enable transition
         document.getElementById('node-cards-wrapper').style.transition = 'transform 0.6s ease-out';
-
         const movedBy = e.clientX - startX;
-
         if (movedBy < -DRAG_THRESHOLD) {
-            navigateCards(1); // Next
+            navigateCards(1);
         } else if (movedBy > DRAG_THRESHOLD) {
-            navigateCards(-1); // Prev
+            navigateCards(-1);
         } else {
-            updateCarouselScale(); // Snap back
-        }
-    };
-
-    container.onmouseleave = () => {
-        if (isDragging) {
-            isDragging = false;
-            container.classList.remove('grabbing');
-            document.getElementById('node-cards-wrapper').style.transition = 'transform 0.6s ease-out';
             updateCarouselScale();
         }
     };
 
-    container.onmousemove = (e) => {
-        if (!isDragging) return;
-        const currentX = e.clientX;
-        const diff = currentX - startX;
-        // Visual feedback during drag (optional, simple log for now)
+    // 3. TOUCH LOGIC (Mobile)
+    container.ontouchstart = (e) => {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        container.classList.add('grabbing');
+        document.getElementById('node-cards-wrapper').style.transition = 'none';
     };
 
-    // 3. WHEEL LOGIC (Scroll)
+    container.ontouchend = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        container.classList.remove('grabbing');
+        document.getElementById('node-cards-wrapper').style.transition = 'transform 0.6s ease-out';
+        const movedBy = e.changedTouches[0].clientX - startX;
+        if (movedBy < -DRAG_THRESHOLD) {
+            navigateCards(1);
+        } else if (movedBy > DRAG_THRESHOLD) {
+            navigateCards(-1);
+        } else {
+            updateCarouselScale();
+        }
+    };
+
+    // 4. WHEEL LOGIC (Scroll)
     container.onwheel = (e) => {
-        // Throttle wheel events
         if (Date.now() - lastWheelTime < 500) return;
         lastWheelTime = Date.now();
-
         if (e.deltaY > 0) {
             navigateCards(1);
         } else {
@@ -1620,7 +1371,11 @@ function startGestureMode() {
     document.getElementById('gesture-panel').style.display = 'flex';
     document.getElementById('node-cards-container').style.display = 'flex';
     document.getElementById('canvas-container').style.display = 'none';
-    document.getElementById('header').style.display = 'none';
+
+    // FIX: Show header because it contains camera-preview
+    document.getElementById('header').style.display = 'flex';
+    const camPreview = document.getElementById('camera-preview');
+    if (camPreview) camPreview.style.display = 'block';
 
     document.getElementById('global-back-btn').style.display = 'block';
 
@@ -1632,11 +1387,25 @@ function startGestureMode() {
     updateCarouselScale();
     startSystem();
 
+    // Show loading indicator while MediaPipe initializes
+    const status = document.getElementById('status');
+    if (status) {
+        status.textContent = '🔄 Đang khởi động camera...';
+        status.style.display = 'block';
+    }
+
     // Lazy load gesture.js then start MediaPipe
     loadGestureScript().then(() => {
-        startMediaPipe();
+        console.log('🚀 Starting MediaPipe after gesture.js loaded');
+        startMediaPipe().then(() => {
+            if (status) status.style.display = 'none';
+        });
     }).catch(err => {
         console.error('Failed to load gesture.js:', err);
+        if (status) {
+            status.textContent = '❌ Lỗi khởi động gesture';
+            setTimeout(() => status.style.display = 'none', 3000);
+        }
     });
 
     toggleAudio(true);
@@ -1657,7 +1426,11 @@ function startMouseMode() {
     updateCarouselScale();
     enableMouseControls();
     init3D();
-    stopMediaPipe();
+    
+    // Stop MediaPipe if it was running (safe check)
+    if (typeof stopMediaPipe === 'function') {
+        stopMediaPipe();
+    }
 
     // Auto-play Music via Toggle Function
     toggleAudio(true);
@@ -1835,6 +1608,11 @@ function selectCard(cardId) {
     currentActiveCard = cardId;
     currentGestureContext = GESTURE_CONTEXT.TIMELINE; // ✅ ADD
 
+    // ⭐ Reset gesture state when entering new context (fixes lag)
+    if (controlMode === 'gesture' && typeof resetGestureState === 'function') {
+        resetGestureState();
+    }
+
     // Force a render to ensure scene is visible
     if (renderer && scene && camera) {
         console.log('🎨 Forcing initial render...');
@@ -1878,11 +1656,16 @@ function exitTimelineView() {
     document.getElementById('global-back-btn').style.display = 'block';
     currentGestureContext = GESTURE_CONTEXT.CAROUSEL;
 
+    // ⭐ Reset gesture state when switching context (fixes lag on return)
+    if (controlMode === 'gesture' && typeof restartMediaPipe === 'function') {
+        restartMediaPipe();
+    }
 }
 
 function resetToWelcome() {
     console.log('Resetting to Welcome Screen');
     controlMode = null;
+    currentGestureContext = GESTURE_CONTEXT.WELCOME;
 
     // Ẩn tất cả giao diện chính
     document.getElementById('node-cards-container').style.display = 'none';
@@ -1891,11 +1674,18 @@ function resetToWelcome() {
     document.getElementById('header').style.display = 'none';
     document.getElementById('global-back-btn').style.display = 'none'; // Ẩn nút back ở welcome
 
+    // Hide virtual cursor
+    const cursor = document.getElementById('virtual-cursor');
+    if (cursor) cursor.style.display = 'none';
+    cursorEnabled = false;
+
     // Hiện màn hình Welcome
     document.getElementById('welcome-overlay').style.display = 'flex';
 
-    // TẮT AI/Camera hoàn toàn
-    stopMediaPipe();
+    // TẮT AI/Camera hoàn toàn (safe check)
+    if (typeof stopMediaPipe === 'function') {
+        stopMediaPipe();
+    }
 }
 
 // Global back button navigation
@@ -1910,82 +1700,7 @@ function goBack() {
     }
 }
 
-// ==========================================
-// 11. START SYSTEM
-// ==========================================
-// Start MediaPipe (only for gesture mode)
-function startMediaPipe() {
-    if (isMediaPipeRunning) return;
-
-    const video = document.querySelector('.input_video');
-    const canvas = document.getElementById('camera-preview');
-    const ctx = canvas.getContext('2d');
-
-    handsInstance = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-
-    handsInstance.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 0,  // Giảm từ 1 → 0 (nhanh hơn 30-40%)
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.5
-    });
-
-    handsInstance.onResults((results) => {
-        if (!isMediaPipeRunning) return; // Skip if stopped
-
-        // Draw camera preview
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-
-        // Draw hand landmarks
-        if (results.multiHandLandmarks) {
-            results.multiHandLandmarks.forEach(landmarks => {
-                // Draw fingertips
-                [4, 8, 12, 16, 20].forEach(tip => {
-                    ctx.beginPath();
-                    ctx.arc(landmarks[tip].x * canvas.width, landmarks[tip].y * canvas.height, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#FFD700';
-                    ctx.fill();
-                });
-            });
-        }
-
-        // Only process gestures when in timeline view (not carousel/detail)
-        if (currentActiveCard !== null && !isInDetailView) {
-            processHands(results);
-        }
-    });
-
-    cameraInstance = new Camera(video, {
-        onFrame: async () => {
-            if (isMediaPipeRunning && handsInstance) {
-                await handsInstance.send({ image: video });
-            }
-        },
-        width: 320,  // Giảm từ 640 → 320 (75% ít pixel hơn)
-        height: 240  // Giảm từ 480 → 240
-    });
-
-    cameraInstance.start().then(() => {
-        isMediaPipeRunning = true;
-        document.getElementById('status').textContent = 'Sẵn sàng! Đưa tay vào camera';
-    });
-}
-
-// Stop MediaPipe (save CPU)
-function stopMediaPipe() {
-    isMediaPipeRunning = false;
-
-    if (typeof cameraInstance !== 'undefined' && cameraInstance) {
-        cameraInstance.stop();
-    }
-
-    if (handsInstance) {
-        handsInstance.close();
-    }
-}
+// --- SYSTEM CONTROL MOVED TO gesture.js OR CONSOLIDATED ---
 
 function startSystem() {
     document.getElementById('btnStart').style.display = 'none';
@@ -2130,147 +1845,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
-// NEW: Hàm khởi tạo carousel controls
-function initCarouselControls() {
-    const container = document.getElementById('node-cards-container');
-    const cards = document.querySelectorAll('.node-card');
-
-    // CLICK LOGIC - Di chuyển từng bước
-    cards.forEach((card, index) => {
-        card.onclick = () => {
-            const cardId = parseInt(card.dataset.nodeId);
-
-            if (index === currentCardIndex) {
-                // Click center card -> ENTER timeline
-                console.log('🎯 Clicked Center Card -> Enter 3D');
-                selectCard(cardId);
-            } else if (index < currentCardIndex) {
-                // Click card bên TRÁI -> Di chuyển 1 bước sang trái
-                console.log('← Clicked Left Card -> Navigate Left');
-                navigateCards(-1);
-            } else {
-                // Click card bên PHẢI -> Di chuyển 1 bước sang phải
-                console.log('→ Clicked Right Card -> Navigate Right');
-                navigateCards(1);
-            }
-        };
-    });
-
-    // WHEEL LOGIC (Scroll) - Lăn chuột để di chuyển
-    let lastWheelTime = 0;
-    container.onwheel = (e) => {
-        // Throttle wheel events (500ms giữa mỗi lần)
-        if (Date.now() - lastWheelTime < 500) return;
-        lastWheelTime = Date.now();
-
-        if (e.deltaY > 0) {
-            navigateCards(1);  // Scroll xuống -> sang phải
-        } else {
-            navigateCards(-1); // Scroll lên -> sang trái
-        }
-    };
-
-    console.log('✅ Card click + wheel handlers initialized for', cards.length, 'cards');
-}
-
-// Cập nhật goBack() để xử lý cả card timeline
-function goBack() {
-    // Nếu đang xem detail (thông tin chi tiết node)
-    if (isInDetailView) {
-        exitDetailView();
-        return;
-    }
-
-    // Nếu đang xem timeline của một card cụ thể
-    if (currentCardId !== null) {
-        // Quay về carousel (không phải main timeline)
-        exitTimelineView();
-        return;
-    }
-
-    // Mặc định: về Welcome Screen
-    resetToWelcome();
-}
-
-// ==========================================
-// RESET VỀ WELCOME SCREEN
-// ==========================================
-function resetToWelcome() {
-    // Ẩn tất cả UI
-    document.getElementById('node-cards-container').style.display = 'none';
-    document.getElementById('canvas-container').style.display = 'none';
-    document.getElementById('header').style.display = 'none';
-    document.getElementById('global-back-btn').style.display = 'none';
-
-    const gesturePanel = document.getElementById('gesture-panel');
-    if (gesturePanel) gesturePanel.style.display = 'none';
-
-    // Hiện welcome
-    document.getElementById('welcome-overlay').style.display = 'flex';
-
-    // Stop tracking và reset state
-    stopMediaPipe();
-
-    // Reset physics state
-    targetZoom = 1.0;
-    currentZoom = 1.0;
-    targetPan = { x: 0, y: 0 };
-    panOffset = { x: 0, y: 0 };
-    scrollVelocity = 0;
-    prevPanPos = null;
-    isHandActive = false;
-
-    // Reset context
-    currentGestureContext = GESTURE_CONTEXT.WELCOME;
-    currentActiveCard = null;
-    currentCardId = null;
-
-    console.log('🏠 Reset to Welcome Screen');
-}
-
-// ==========================================
-// NODE CLICK HANDLER - Raycaster để detect click trên nodes
-// ==========================================
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-
-function onCanvasClick(event) {
-    // Chỉ xử lý khi đang ở timeline view và chưa mở detail
-    if (isInDetailView || currentCardId === null) return;
-
-    const rect = renderer.domElement.getBoundingClientRect();
-
-    // Convert mouse position to normalized device coordinates (-1 to +1)
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Update raycaster
-    raycaster.setFromCamera(mouse, camera);
-
-    // Check for intersections with node meshes
-    const intersects = raycaster.intersectObjects(nodeMeshes);
-
-    if (intersects.length > 0) {
-        const clickedNode = intersects[0].object;
-        const nodeData = clickedNode.userData;
-
-        console.log('🎯 Node clicked:', nodeData.title || nodeData.year);
-
-        // Animate zoom before opening detail view
-        animateNodeZoom(clickedNode, () => {
-            openDetailView(nodeData);
-        });
-    }
-}
-
-// Add click listener when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    // Wait a bit for renderer to be created
-    setTimeout(() => {
-        const canvasContainer = document.getElementById('canvas-container');
-        if (canvasContainer) {
-            canvasContainer.addEventListener('click', onCanvasClick);
-            console.log('✅ Node click handler attached to canvas');
-        }
-    }, 1000);
-});
+// --- END OF SCRIPT.JS ---

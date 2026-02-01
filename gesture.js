@@ -64,29 +64,48 @@ function isPointingFinger(landmarks) {
 // ==========================================
 // PROCESS HANDS - MAIN ENTRY POINT
 // ==========================================
+// Track consecutive frames without hands (for smooth fade-out)
+let framesWithoutHands = 0;
+const HAND_LOST_THRESHOLD = 3; // Wait 3 frames before resetting (reduces flickering)
+
 function processHands(results) {
     if (controlMode !== 'gesture') return;
 
-    leftHand = null;
-    rightHand = null;
+    // Temporarily store detected hands
+    let detectedLeftHand = null;
+    let detectedRightHand = null;
 
     if (results.multiHandLandmarks && results.multiHandedness) {
         results.multiHandLandmarks.forEach((landmarks, i) => {
             const handedness = results.multiHandedness[i].label;
             if (handedness === 'Left') {
-                rightHand = landmarks;
+                detectedRightHand = landmarks;
             } else {
-                leftHand = landmarks;
+                detectedLeftHand = landmarks;
             }
         });
     }
 
-    // Reset state when hands lost (Fixes jumping issue)
-    if (!leftHand && !rightHand) {
-        prevPanPos = null;
-        isHandActive = false;
+    // Smooth hand detection with threshold (prevents flickering)
+    if (!detectedLeftHand && !detectedRightHand) {
+        framesWithoutHands++;
+        
+        if (framesWithoutHands >= HAND_LOST_THRESHOLD) {
+            // Actually lost hands - reset state
+            leftHand = null;
+            rightHand = null;
+            prevPanPos = null;
+            isHandActive = false;
+            framesWithoutHands = 0;
+        }
+        // Otherwise keep last known hand state for smooth transitions
         return;
     }
+    
+    // Hands detected - update state
+    framesWithoutHands = 0;
+    leftHand = detectedLeftHand;
+    rightHand = detectedRightHand;
     isHandActive = true;
 
     // Context-aware handling
@@ -328,88 +347,157 @@ function checkNodeHover(screenX, screenY) {
 // ==========================================
 // MEDIAPIPE INITIALIZATION
 // ==========================================
-async function startMediaPipe() {
-    if (isMediaPipeRunning) return;
+// Throttle for processHands (reduce lag)
+let lastProcessTime = 0;
+const PROCESS_INTERVAL = 50; // Process every 50ms (20 FPS for gestures)
 
-    // === BẮT BUỘC XIN QUYỀN CAMERA ===
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: 640,
-                height: 480,
-                facingMode: 'user'
-            }
-        });
-        // Đóng stream tạm để MediaPipe tự quản lý
-        stream.getTracks().forEach(track => track.stop());
-        console.log('✅ Camera permission granted');
-    } catch (err) {
-        console.error('❌ Camera permission denied:', err);
-        alert('⚠️ Cần cấp quyền Camera để sử dụng chế độ cử chỉ tay!\n\nVui lòng:\n1. Nhấn vào biểu tượng camera trên thanh địa chỉ\n2. Chọn "Cho phép" (Allow)\n3. Tải lại trang');
+// Track initialization state
+let isMediaPipeInitializing = false;
+
+async function startMediaPipe() {
+    // Prevent double initialization
+    if (isMediaPipeRunning) {
+        console.log('⚠️ MediaPipe already running');
         return;
     }
+    
+    if (isMediaPipeInitializing) {
+        console.log('⚠️ MediaPipe is initializing...');
+        return;
+    }
+    
+    isMediaPipeInitializing = true;
 
     const video = document.querySelector('.input_video');
     const canvas = document.getElementById('camera-preview');
     const ctx = canvas.getContext('2d');
 
-    handsInstance = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
+    // REUSE: Only create instance if not exists
+    if (!handsInstance) {
+        console.log('🔧 Creating Hands instance...');
+        handsInstance = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
 
-    handsInstance.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 0,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.5
-    });
+        handsInstance.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.6,  // Giảm để phát hiện nhanh hơn
+            minTrackingConfidence: 0.4    // Giảm để tracking mượt hơn
+        });
 
-    handsInstance.onResults((results) => {
-        if (!isMediaPipeRunning) return;
+        handsInstance.onResults((results) => {
+            if (!isMediaPipeRunning) return;
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-
-        if (results.multiHandLandmarks) {
-            results.multiHandLandmarks.forEach(landmarks => {
-                [4, 8, 12, 16, 20].forEach(tip => {
-                    ctx.beginPath();
-                    ctx.arc(landmarks[tip].x * canvas.width, landmarks[tip].y * canvas.height, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#FFD700';
-                    ctx.fill();
-                });
-            });
-        }
-
-        // Process gestures in all contexts now
-        processHands(results);
-    });
-
-    cameraInstance = new Camera(video, {
-        onFrame: async () => {
-            if (isMediaPipeRunning && handsInstance) {
-                await handsInstance.send({ image: video });
+            // Throttle processing to reduce lag
+            const now = Date.now();
+            if (now - lastProcessTime < PROCESS_INTERVAL) {
+                // Still draw camera preview even when throttled
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                return;
             }
-        },
-        width: 320,
-        height: 240
-    });
+            lastProcessTime = now;
 
-    cameraInstance.start().then(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+
+            if (results.multiHandLandmarks) {
+                results.multiHandLandmarks.forEach(landmarks => {
+                    [4, 8, 12, 16, 20].forEach(tip => {
+                        ctx.beginPath();
+                        ctx.arc(landmarks[tip].x * canvas.width, landmarks[tip].y * canvas.height, 4, 0, Math.PI * 2);
+                        ctx.fillStyle = '#FFD700';
+                        ctx.fill();
+                    });
+                });
+            }
+
+            // Process gestures in all contexts now
+            processHands(results);
+        });
+    }
+
+    if (!cameraInstance) {
+        console.log('🔧 Creating Camera instance...');
+        cameraInstance = new Camera(video, {
+            onFrame: async () => {
+                if (isMediaPipeRunning && handsInstance) {
+                    try {
+                        await handsInstance.send({ image: video });
+                    } catch (e) {
+                        // Silently ignore send failures to reduce console spam
+                    }
+                }
+            },
+            width: 320,
+            height: 240
+        });
+    }
+
+    try {
+        await cameraInstance.start();
         isMediaPipeRunning = true;
-        console.log('✅ MediaPipe started');
-    });
+        isMediaPipeInitializing = false;
+        console.log('✅ MediaPipe started successfully');
+    } catch (err) {
+        console.error('❌ Camera start failed:', err);
+        isMediaPipeRunning = false;
+        isMediaPipeInitializing = false;
+        
+        // Show user-friendly error
+        alert('⚠️ Cần cấp quyền Camera để sử dụng chế độ cử chỉ tay!\n\nVui lòng:\n1. Nhấn vào biểu tượng camera trên thanh địa chỉ\n2. Chọn "Cho phép" (Allow)\n3. Tải lại trang');
+    }
 }
 
 function stopMediaPipe() {
+    console.log('⏹️ Stopping MediaPipe...');
     isMediaPipeRunning = false;
+    isMediaPipeInitializing = false;
+
     if (cameraInstance) {
         cameraInstance.stop();
     }
-    if (handsInstance) {
-        handsInstance.close();
+    
+    // Reset gesture states to prevent stale data
+    resetGestureState();
+    
+    // Note: Don't close handsInstance completely as it causes WASM re-init errors
+    // Just stop processing frames by setting isMediaPipeRunning = false
+    console.log('⏹️ MediaPipe components paused');
+}
+
+// Reset all gesture-related state
+function resetGestureState() {
+    leftHand = null;
+    rightHand = null;
+    prevPanPos = null;
+    isHandActive = false;
+    lastProcessTime = 0;
+    
+    // Reset cursor state but keep it visible if enabled
+    if (cursorEnabled) {
+        cursorTargetX = window.innerWidth / 2;
+        cursorTargetY = window.innerHeight / 2;
     }
-    console.log('⏹️ MediaPipe stopped');
+    
+    console.log('🔄 Gesture state reset');
+}
+
+// Quick restart MediaPipe (for context switching)
+async function restartMediaPipe() {
+    if (controlMode !== 'gesture') return;
+    
+    console.log('🔄 Restarting MediaPipe...');
+    
+    // If already running, just reset state
+    if (isMediaPipeRunning) {
+        resetGestureState();
+        return;
+    }
+    
+    // If not running, start it
+    await startMediaPipe();
 }
 
 // ==========================================

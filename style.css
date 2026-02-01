@@ -12,6 +12,93 @@
             color: white;
         }
 
+        /* ==========================================
+           MOBILE OPTIMIZATION (Media Queries)
+           ========================================== */
+        @media screen and (max-width: 768px) {
+            #welcome-title {
+                font-size: 32px !important;
+            }
+
+            #welcome-subtitle {
+                font-size: 16px !important;
+                margin-bottom: 30px !important;
+            }
+
+            #welcome-options {
+                flex-direction: column !important;
+                gap: 20px !important;
+                align-items: center !important;
+            }
+
+            .welcome-btn {
+                padding: 25px 20px !important;
+                max-width: 280px !important;
+            }
+
+            .btn-icon {
+                font-size: 48px !important;
+            }
+
+            .btn-text {
+                font-size: 20px !important;
+            }
+
+            #title {
+                font-size: 14px !important;
+            }
+
+            .node-card {
+                width: 280px !important;
+                height: 400px !important;
+            }
+
+            #detail-container {
+                padding: 20px !important;
+            }
+
+            #detail-title {
+                font-size: 24px !important;
+            }
+
+            #detail-quote {
+                font-size: 14px !important;
+            }
+
+            .event-item {
+                flex-direction: column !important;
+                gap: 5px !important;
+            }
+
+            .event-date {
+                font-size: 12px !important;
+            }
+
+            #detail-subnodes {
+                grid-template-columns: 1fr !important;
+            }
+
+            #audio-btn {
+                top: 20px !important;
+                right: 20px !important;
+            }
+
+            #global-back-btn,
+            #conclusion-btn {
+                padding: 10px 20px !important;
+                font-size: 14px !important;
+                bottom: 20px !important;
+            }
+
+            #global-back-btn {
+                right: 20px !important;
+            }
+
+            #conclusion-btn {
+                left: 20px !important;
+            }
+        }
+
         #canvas-container {
             width: 100vw;
             height: 100vh;
@@ -334,6 +421,7 @@
             font-weight: 300;
             background: linear-gradient(90deg, #FFD700, #FF6B6B);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
