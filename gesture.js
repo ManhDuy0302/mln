@@ -526,10 +526,25 @@ function checkNodeHover(screenX, screenY) {
     // 1. Kiểm tra HTML Buttons trước (ưu tiên UI)
     // Lưu ý: Dùng Math.round để tránh lỗi tọa độ float trong một số trình duyệt
     const elements = document.elementsFromPoint(Math.round(screenX), Math.round(screenY));
-    hoveredHTMLButton = elements.find(el => (el.tagName === 'BUTTON' || el.closest('button')) && el.id !== 'virtual-cursor');
+    const newHoveredHTMLButton = elements.find(el => (el.tagName === 'BUTTON' || el.closest('button')) && el.id !== 'virtual-cursor');
+
+    // ⭐ MỚI: Quản lý class gesture-hover để tạo hiệu ứng nhô lên/glow
+    if (newHoveredHTMLButton !== hoveredHTMLButton) {
+        // Xóa class cũ
+        if (hoveredHTMLButton) {
+            const oldTarget = hoveredHTMLButton.tagName === 'BUTTON' ? hoveredHTMLButton : hoveredHTMLButton.closest('button');
+            oldTarget.classList.remove('gesture-hover');
+        }
+        // Thêm class mới
+        if (newHoveredHTMLButton) {
+            const newTarget = newHoveredHTMLButton.tagName === 'BUTTON' ? newHoveredHTMLButton : newHoveredHTMLButton.closest('button');
+            newTarget.classList.add('gesture-hover');
+        }
+        hoveredHTMLButton = newHoveredHTMLButton;
+    }
 
     if (hoveredHTMLButton) {
-        hoveredNode = null; // Tắt hover node 3D nếu đang đè lên button HTML
+        hoveredNode = null;
         document.body.style.cursor = 'pointer';
         return;
     }

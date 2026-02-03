@@ -1156,7 +1156,8 @@
             transition: all 0.3s ease;
         }
 
-        .subnode-btn:hover {
+        .subnode-btn:hover,
+        .subnode-btn.gesture-hover {
             background: linear-gradient(135deg, rgba(80, 80, 100, 0.9), rgba(60, 60, 80, 0.9));
             transform: translateY(-3px);
             box-shadow: 0 5px 20px rgba(255, 215, 0, 0.2);
@@ -1267,9 +1268,12 @@
         }
 
         @keyframes edge-pulse {
-            0%, 100% {
+
+            0%,
+            100% {
                 transform: translate(-50%, -50%) scale(1);
             }
+
             50% {
                 transform: translate(-50%, -50%) scale(1.15);
             }
@@ -1323,7 +1327,8 @@
             opacity: 0.6;
         }
 
-        #conclusion-btn:hover {
+        #conclusion-btn:hover,
+        #conclusion-btn.gesture-hover {
             opacity: 1;
             background: rgba(139, 0, 0, 0.8);
             transform: scale(1.05) !important;
@@ -1391,7 +1396,8 @@
             transition: all 0.3s ease;
         }
 
-        #conclusion-close-btn:hover {
+        #conclusion-close-btn:hover,
+        #conclusion-close-btn.gesture-hover {
             background: rgba(255, 215, 0, 0.6);
         }
 
