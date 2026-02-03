@@ -95,7 +95,12 @@
             }
 
             #conclusion-btn {
-                left: 20px !important;
+                left: 0 !important;
+                right: 0 !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                width: fit-content !important;
+                transform: none !important;
             }
         }
 
@@ -278,7 +283,7 @@
             border: 3px solid #FFD700;
             border-radius: 50%;
             pointer-events: none;
-            z-index: 500;
+            z-index: 10001;
             transform: translate(-50%, -50%);
             box-shadow: 0 0 20px rgba(255, 204, 0, 0.7), inset 0 0 10px rgba(255, 204, 0, 0.3);
             transition: all 0.05s ease-out;
@@ -1294,11 +1299,16 @@
            CONCLUSION BUTTON & OVERLAY
         ========================================== */
 
-        /* Conclusion Button - Semi-transparent, Bottom-Left */
+        /* Conclusion Button - Bottom Center */
         #conclusion-btn {
-            position: fixed;
-            bottom: 30px;
-            left: 30px;
+            position: fixed !important;
+            bottom: 30px !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            width: fit-content !important;
+            transform: none !important;
             z-index: 500;
             padding: 12px 24px;
             font-size: 16px;
@@ -1316,7 +1326,7 @@
         #conclusion-btn:hover {
             opacity: 1;
             background: rgba(139, 0, 0, 0.8);
-            transform: scale(1.05);
+            transform: scale(1.05) !important;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
         }
 
@@ -1328,16 +1338,15 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.92);
             z-index: 1000;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(10px);
+            /* Bỏ backdrop-filter để tránh lag */
         }
 
         #conclusion-overlay.show {
             display: flex;
-            animation: fadeIn 0.3s ease;
         }
 
         #conclusion-container {

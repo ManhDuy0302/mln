@@ -50,7 +50,8 @@ const DOM = {
     globalBackBtn: null,
     welcomeOverlay: null,
     cameraPreview: null,
-    title: null
+    title: null,
+    conclusionOverlay: null
 };
 
 function cacheDOMElements() {
@@ -63,6 +64,7 @@ function cacheDOMElements() {
     DOM.welcomeOverlay = document.getElementById('welcome-overlay');
     DOM.cameraPreview = document.getElementById('camera-preview');
     DOM.title = document.getElementById('title');
+    DOM.conclusionOverlay = document.getElementById('conclusion-overlay');
 }
 
 // sửa node ở đây
@@ -83,6 +85,17 @@ const timelineData = {
             color: 0xFF6B6B,
             // === TÙY CHỈNH ĐỘ CONG SÓNG CHO TIMELINE NÀY ===
             waveAmplitude: 30,  // Độ cao sóng (px). null = tự động, số lớn = cong hơn
+            // === KẾT LUẬN CHO GIAI ĐOẠN NÀY ===
+            conclusion: `
+                <h2>🔴 Kết luận giai đoạn 1840s – 1890s</h2>
+                <p>Chủ nghĩa Marx ra đời trong bối cảnh châu Âu đang trải qua những biến đổi sâu sắc về kinh tế - xã hội do cuộc Cách mạng công nghiệp.</p>
+                <ul>
+                    <li><strong>Về triết học:</strong> Marx đã kế thừa và phát triển phép biện chứng của Hegel, đồng thời phê phán và cải tạo chủ nghĩa duy vật của Feuerbach.</li>
+                    <li><strong>Về kinh tế chính trị:</strong> Học thuyết giá trị thặng dư được coi là phát kiến vĩ đại nhất của Marx.</li>
+                    <li><strong>Về chủ nghĩa xã hội:</strong> Marx và Engels đã biến chủ nghĩa xã hội từ không tưởng thành khoa học.</li>
+                </ul>
+                <p><em>Đây là nền tảng lý luận quan trọng cho sự phát triển của phong trào cộng sản và công nhân quốc tế.</em></p>
+            `,
             // CÁC NODE CON của card này (hiển thị khi click vào card)
             timelineNodes: [
                 {
@@ -132,6 +145,16 @@ const timelineData = {
             title: "1900s – 1920s: Từ lý luận Marx đến thực tiễn Lenin",
             desc: "Từ lý luận Marx đến thực tiễn Lenin",
             color: 0x4ECDC4,
+            conclusion: `
+                <h2>🔵 Kết luận giai đoạn 1900s – 1920s</h2>
+                <p>Giai đoạn này đánh dấu bước chuyển quan trọng từ lý luận sang thực tiễn cách mạng.</p>
+                <ul>
+                    <li><strong>Lenin phát triển chủ nghĩa Marx:</strong> Hoàn thiện học thuyết về đảng kiểu mới, về chủ nghĩa đế quốc.</li>
+                    <li><strong>Cách mạng Tháng Mười 1917:</strong> Lần đầu tiên trong lịch sử, giai cấp công nhân giành được chính quyền.</li>
+                    <li><strong>Quốc tế Cộng sản (1919):</strong> Phong trào cộng sản trở thành phong trào quốc tế có tổ chức.</li>
+                </ul>
+                <p><em>Thắng lợi của Cách mạng Tháng Mười đã mở ra thời đại mới - thời đại quá độ từ chủ nghĩa tư bản lên chủ nghĩa xã hội.</em></p>
+            `,
             timelineNodes: [
                 {
                     id: "2-1",
@@ -189,6 +212,17 @@ const timelineData = {
             title: "1920s – 1945: Củng cố mô hình XHCN \n và ảnh hưởng trong phong trào cách mạng thế giới",
             desc: "Củng cố mô hình XHCN và ảnh hưởng trong phong trào cách mạng thế giới",
             color: 0xFFE66D,
+            conclusion: `
+                <h2>🟡 Kết luận giai đoạn 1920s – 1945</h2>
+                <p>Đây là giai đoạn củng cố và mở rộng ảnh hưởng của chủ nghĩa Marx-Lenin trên phạm vi toàn cầu.</p>
+                <ul>
+                    <li><strong>Liên Xô xây dựng CNXH:</strong> Công nghiệp hóa, tập thể hóa nông nghiệp, xây dựng nền tảng vật chất cho CNXH.</li>
+                    <li><strong>Phong trào cộng sản lan rộng:</strong> Đảng Cộng sản Trung Quốc (1921), Đảng Cộng sản Việt Nam (1930) ra đời.</li>
+                    <li><strong>Vai trò trong Thế chiến II:</strong> Liên Xô đóng vai trò quyết định trong việc đánh bại chủ nghĩa phát xít.</li>
+                    <li><strong>Cách mạng Tháng Tám 1945:</strong> Việt Nam giành độc lập, mở đầu sự sụp đổ của hệ thống thuộc địa.</li>
+                </ul>
+                <p><em>Chủ nghĩa Marx-Lenin đã chứng minh sức sống mạnh mẽ trong thực tiễn đấu tranh giải phóng dân tộc.</em></p>
+            `,
             timelineNodes: [
                 {
                     id: "3-1",
@@ -261,6 +295,17 @@ const timelineData = {
             title: "1947 – 1970s: Mở rộng hệ thống XHCN trong bối cảnh Chiến tranh Lạnh",
             desc: "Mở rộng hệ thống XHCN trong bối cảnh Chiến tranh Lạnh",
             color: 0x95E1D3,
+            conclusion: `
+                <h2>🟢 Kết luận giai đoạn 1947 – 1970s</h2>
+                <p>Chiến tranh Lạnh đã định hình cục diện thế giới hai cực, với hệ thống XHCN mở rộng mạnh mẽ.</p>
+                <ul>
+                    <li><strong>Hệ thống XHCN thế giới:</strong> Từ một nước (Liên Xô) phát triển thành hệ thống gồm nhiều quốc gia ở Đông Âu, châu Á, châu Mỹ Latin.</li>
+                    <li><strong>Cách mạng Cuba (1959):</strong> CNXH lan đến "sân sau" của Mỹ.</li>
+                    <li><strong>Phong trào giải phóng dân tộc:</strong> Nhiều quốc gia châu Á, châu Phi giành độc lập với sự hỗ trợ của phe XHCN.</li>
+                    <li><strong>Việt Nam (1975):</strong> Thắng lợi vĩ đại của nhân dân Việt Nam, chứng minh sức mạnh của ý chí độc lập dân tộc kết hợp với CNXH.</li>
+                </ul>
+                <p><em>Giai đoạn này chứng kiến sự phát triển đỉnh cao về quy mô của hệ thống XHCN thế giới.</em></p>
+            `,
             timelineNodes: [
                 {
                     id: "4-1",
@@ -317,6 +362,17 @@ const timelineData = {
             title: "1980s – 2000s: Khủng hoảng và tan rã của hệ thống XHCN Đông Âu – Liên Xô.\nTái định hình con đường phát triển của các nước XHCN còn lại",
             desc: "Khủng hoảng và tan rã của hệ thống XHCN Đông Âu – Liên Xô. Tái định hình con đường phát triển của các nước XHCN còn lại",
             color: 0xF38181,
+            conclusion: `
+                <h2>🔴 Kết luận giai đoạn 1980s – 2000s</h2>
+                <p>Đây là giai đoạn thử thách khốc liệt nhất của phong trào XHCN thế giới.</p>
+                <ul>
+                    <li><strong>Nguyên nhân khủng hoảng:</strong> Mô hình kế hoạch hóa tập trung bộc lộ nhiều hạn chế, không theo kịp cuộc cách mạng khoa học - công nghệ.</li>
+                    <li><strong>Liên Xô tan rã (1991):</strong> Sự kiện làm thay đổi cục diện thế giới, kết thúc Chiến tranh Lạnh.</li>
+                    <li><strong>Bài học lịch sử:</strong> CNXH phải gắn liền với thực tiễn, không ngừng đổi mới để phù hợp với điều kiện cụ thể.</li>
+                    <li><strong>Đổi mới thành công:</strong> Trung Quốc (1978), Việt Nam (1986) tiến hành cải cách, mở cửa, đạt được những thành tựu to lớn.</li>
+                </ul>
+                <p><em>Sự sụp đổ của mô hình XHCN ở Đông Âu - Liên Xô không phải là sự sụp đổ của CNXH, mà là sự sụp đổ của một mô hình cụ thể.</em></p>
+            `,
             timelineNodes: [
                 {
                     id: "5-1",
@@ -373,6 +429,17 @@ const timelineData = {
             title: "2000s – nay: Tác động đương đại của chủ nghĩa Marx–Lenin trong bối cảnh toàn cầu",
             desc: "Tác động đương đại của chủ nghĩa Marx–Lenin trong bối cảnh toàn cầu",
             color: 0xAA96DA,
+            conclusion: `
+                <h2>🟣 Kết luận giai đoạn 2000s – Nay</h2>
+                <p>Trong thế kỷ 21, chủ nghĩa Marx-Lenin vẫn tiếp tục có những đóng góp quan trọng cho sự phát triển của nhân loại.</p>
+                <ul>
+                    <li><strong>Kinh tế:</strong> Trung Quốc trở thành nền kinh tế lớn thứ hai thế giới, Việt Nam đạt tăng trưởng ấn tượng.</li>
+                    <li><strong>Chính trị:</strong> Xu hướng đa cực hóa, thách thức trật tự đơn cực do Mỹ chi phối.</li>
+                    <li><strong>Xã hội:</strong> Mô hình phát triển lấy con người làm trung tâm ngày càng được quan tâm.</li>
+                    <li><strong>Lý luận:</strong> Chủ nghĩa Marx-Lenin tiếp tục được nghiên cứu, phát triển phù hợp với điều kiện mới.</li>
+                </ul>
+                <p><em>Chủ nghĩa Marx-Lenin không phải là giáo điều cứng nhắc, mà là kim chỉ nam cho hành động, cần được vận dụng sáng tạo vào thực tiễn từng quốc gia.</em></p>
+            `,
             timelineNodes: [
                 {
                     id: "6-1",

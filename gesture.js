@@ -89,7 +89,7 @@ function processHands(results) {
     // Smooth hand detection with threshold (prevents flickering)
     if (!detectedLeftHand && !detectedRightHand) {
         framesWithoutHands++;
-        
+
         if (framesWithoutHands >= HAND_LOST_THRESHOLD) {
             // Actually lost hands - reset state
             leftHand = null;
@@ -101,7 +101,7 @@ function processHands(results) {
         // Otherwise keep last known hand state for smooth transitions
         return;
     }
-    
+
     // Hands detected - update state
     framesWithoutHands = 0;
     leftHand = detectedLeftHand;
@@ -119,6 +119,11 @@ function processHands(results) {
     }
     else if (currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
         if (leftHand) handleLeftTimeline(leftHand);
+        if (rightHand) handleRightHand(rightHand);
+    }
+    // ⭐ CONCLUSION context - scroll nội dung kết luận
+    else if (currentGestureContext === GESTURE_CONTEXT.CONCLUSION) {
+        if (leftHand) handleLeftConclusion(leftHand);
         if (rightHand) handleRightHand(rightHand);
     }
 }
@@ -155,7 +160,11 @@ function handleRightHand(landmarks) {
         if (now - lastBackTime < CONFIG.BACK_COOLDOWN) return '🖖 ĐANG CHỜ...';
         lastBackTime = now;
 
-        if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
+        // ⭐ Thêm xử lý back từ CONCLUSION
+        if (currentGestureContext === GESTURE_CONTEXT.CONCLUSION) {
+            closeConclusionOverlay();
+            return '🖖 BACK: Conclusion → Timeline';
+        } else if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
             exitDetailView();
             return '🖖 BACK: Detail → Timeline';
         } else if (currentGestureContext === GESTURE_CONTEXT.TIMELINE) {
@@ -222,6 +231,28 @@ function handleLeftDetail(landmarks) {
         }
         const dy = palm.y - prevPanPos.y;
         scrollVelocity = dy * 25;
+        prevPanPos = palm;
+        return;
+    }
+    prevPanPos = null;
+}
+
+// ⭐ Scroll nội dung Kết luận bằng tay trái
+function handleLeftConclusion(landmarks) {
+    if (isOpenHand(landmarks)) {
+        const palm = landmarks[9];
+        if (!prevPanPos) {
+            prevPanPos = palm;
+            return;
+        }
+        const dy = palm.y - prevPanPos.y;
+
+        // Scroll conclusion container
+        const container = document.getElementById('conclusion-container');
+        if (container) {
+            container.scrollTop += dy * 800;
+        }
+
         prevPanPos = palm;
         return;
     }
@@ -296,18 +327,18 @@ let lastEdgeScrollTime = 0;
 const EDGE_SCROLL_INTERVAL = 100; // ms giữa mỗi lần auto-scroll
 
 function getMargin() {
-    return (typeof CONFIG !== 'undefined' && CONFIG.CAMERA_MARGIN) 
-        ? CONFIG.CAMERA_MARGIN 
+    return (typeof CONFIG !== 'undefined' && CONFIG.CAMERA_MARGIN)
+        ? CONFIG.CAMERA_MARGIN
         : 0.2;
 }
 
 function mapCameraToScreen(rawValue) {
     const margin = getMargin();
-    
+
     // Map từ vùng [margin, 1-margin] → [0, 1]
     // Ví dụ với margin=0.25: 0.25 → 0, 0.5 → 0.5, 0.75 → 1
     const mapped = (rawValue - margin) / (1 - 2 * margin);
-    
+
     // Clamp để không vượt quá 0-1
     return Math.max(0, Math.min(1, mapped));
 }
@@ -316,17 +347,17 @@ function mapCameraToScreen(rawValue) {
 function handleEdgeScroll(rawX, rawY) {
     const margin = getMargin();
     const now = Date.now();
-    
+
     // Throttle edge scroll
     if (now - lastEdgeScrollTime < EDGE_SCROLL_INTERVAL) return;
-    
+
     // Detect edge zones (trong vùng margin)
     // Lưu ý: Camera bị mirror nên trái/phải đảo ngược
     const inLeftEdge = rawX > (1 - margin);   // Tay bên phải camera = trái màn hình
     const inRightEdge = rawX < margin;         // Tay bên trái camera = phải màn hình
     const inTopEdge = rawY < margin;
     const inBottomEdge = rawY > (1 - margin);
-    
+
     // ⭐ Tính tốc độ scroll với EXPONENTIAL EASING
     // Càng xa khỏi biên (sâu vào margin) → tốc độ tăng NHANH hơn (bậc 2)
     // depth: 0 (vừa chạm edge) → 1 (sát mép camera)
@@ -341,14 +372,14 @@ function handleEdgeScroll(rawX, rawY) {
         // Map từ minSpeed đến maxSpeed
         return minSpeed + easedDepth * (maxSpeed - minSpeed);
     };
-    
+
     let scrolled = false;
-    
+
     // === CONTEXT: TIMELINE (Pan camera) ===
     if (currentGestureContext === GESTURE_CONTEXT.TIMELINE && !isInDetailView) {
         const PAN_MIN = 2;   // Tốc độ tối thiểu (vừa chạm edge)
         const PAN_MAX = 20;  // Tốc độ tối đa (sát mép camera)
-        
+
         if (inLeftEdge) {
             const speed = calcSpeed(rawX, 1 - margin, PAN_MIN, PAN_MAX);
             targetPan.x -= speed;
@@ -370,12 +401,12 @@ function handleEdgeScroll(rawX, rawY) {
             scrolled = true;
         }
     }
-    
+
     // === CONTEXT: CAROUSEL (Navigate cards) ===
     if (currentGestureContext === GESTURE_CONTEXT.CAROUSEL) {
         // Chỉ xử lý trái/phải, với cooldown dài hơn để tránh lướt quá nhanh
         if (now - lastEdgeScrollTime < 400) return;
-        
+
         if (inLeftEdge) {
             navigateCards(-1); // Previous card
             scrolled = true;
@@ -385,12 +416,12 @@ function handleEdgeScroll(rawX, rawY) {
             scrolled = true;
         }
     }
-    
+
     // === CONTEXT: DETAIL (Scroll content) ===
     if (currentGestureContext === GESTURE_CONTEXT.DETAIL) {
         const SCROLL_MIN = 3;   // Tốc độ tối thiểu
         const SCROLL_MAX = 25;  // Tốc độ tối đa (sát mép = cuộn rất nhanh)
-        
+
         if (inTopEdge) {
             const speed = calcSpeed(rawY, margin, SCROLL_MIN, SCROLL_MAX);
             scrollVelocity = -speed;
@@ -402,7 +433,7 @@ function handleEdgeScroll(rawX, rawY) {
             scrolled = true;
         }
     }
-    
+
     if (scrolled) {
         lastEdgeScrollTime = now;
         edgeScrollActive = true;
@@ -417,26 +448,27 @@ function moveCursor(indexFingerLandmark) {
         cursorEnabled = true;
         cursor.style.display = 'block';
     }
-    
+
     // Lưu raw values để detect edge
     const rawX = indexFingerLandmark.x;
     const rawY = indexFingerLandmark.y;
-    
+
     // Map từ vùng giữa camera ra toàn màn hình
     const normalizedX = mapCameraToScreen(rawX);
     const normalizedY = mapCameraToScreen(rawY);
-    
+
     // Mirror X vì camera bị lật ngang (selfie mode)
     cursorTargetX = (1 - normalizedX) * window.innerWidth;
     cursorTargetY = normalizedY * window.innerHeight;
-    
+
     // ⭐ Edge scrolling: khi ngón tay chạm margin, tự động lướt
     handleEdgeScroll(rawX, rawY);
-    
+
+    // ⭐ MỚI: Truyền tọa độ mượt (cursorX, cursorY) thay vì tọa độ target
     checkNodeHover(cursorX, cursorY);
-    
+
     // Visual feedback khi edge scrolling
-    cursor.classList.toggle('active', !!hoveredNode);
+    cursor.classList.toggle('active', !!hoveredNode || hoveredHTMLButton);
     cursor.classList.toggle('edge-scrolling', edgeScrollActive);
 }
 
@@ -446,6 +478,19 @@ function moveCursor(indexFingerLandmark) {
 function selectOrEnterNode() {
     if (!cursorX || !cursorY) {
         return '✌️ 2 NGÓN: DI CHUYỂN CURSOR ĐẾN NODE';
+    }
+
+    if (hoveredHTMLButton) {
+        const btn = hoveredHTMLButton.tagName === 'BUTTON' ? hoveredHTMLButton : hoveredHTMLButton.closest('button');
+        console.log('🎯 GESTURE CLICK:', btn.id, btn.textContent.trim());
+
+        // Visual feedback for clicking
+        const cursor = document.getElementById('virtual-cursor');
+        cursor.classList.add('clicking');
+        setTimeout(() => cursor.classList.remove('clicking'), 300);
+
+        btn.click();
+        return `✌️ 2 NGÓN: CLICK BUTTON "${btn.textContent.trim()}"`;
     }
 
     const cursor = document.getElementById('virtual-cursor');
@@ -475,7 +520,21 @@ function selectOrEnterNode() {
     return '✌️ 2 NGÓN: KHÔNG CÓ NODE';
 }
 
+let hoveredHTMLButton = null;
+
 function checkNodeHover(screenX, screenY) {
+    // 1. Kiểm tra HTML Buttons trước (ưu tiên UI)
+    // Lưu ý: Dùng Math.round để tránh lỗi tọa độ float trong một số trình duyệt
+    const elements = document.elementsFromPoint(Math.round(screenX), Math.round(screenY));
+    hoveredHTMLButton = elements.find(el => (el.tagName === 'BUTTON' || el.closest('button')) && el.id !== 'virtual-cursor');
+
+    if (hoveredHTMLButton) {
+        hoveredNode = null; // Tắt hover node 3D nếu đang đè lên button HTML
+        document.body.style.cursor = 'pointer';
+        return;
+    }
+
+    // 2. Kiểm tra 3D Nodes
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2(
         (screenX / window.innerWidth) * 2 - 1,
@@ -484,6 +543,12 @@ function checkNodeHover(screenX, screenY) {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(nodeMeshes);
     hoveredNode = intersects.length > 0 ? intersects[0].object.userData : null;
+
+    if (hoveredNode) {
+        document.body.style.cursor = 'pointer';
+    } else {
+        document.body.style.cursor = 'default';
+    }
 }
 
 // ==========================================
@@ -502,12 +567,12 @@ async function startMediaPipe() {
         console.log('⚠️ MediaPipe already running');
         return;
     }
-    
+
     if (isMediaPipeInitializing) {
         console.log('⚠️ MediaPipe is initializing...');
         return;
     }
-    
+
     isMediaPipeInitializing = true;
 
     const video = document.querySelector('.input_video');
@@ -586,7 +651,7 @@ async function startMediaPipe() {
         console.error('❌ Camera start failed:', err);
         isMediaPipeRunning = false;
         isMediaPipeInitializing = false;
-        
+
         // Show user-friendly error
         alert('⚠️ Cần cấp quyền Camera để sử dụng chế độ cử chỉ tay!\n\nVui lòng:\n1. Nhấn vào biểu tượng camera trên thanh địa chỉ\n2. Chọn "Cho phép" (Allow)\n3. Tải lại trang');
     }
@@ -600,10 +665,10 @@ function stopMediaPipe() {
     if (cameraInstance) {
         cameraInstance.stop();
     }
-    
+
     // Reset gesture states to prevent stale data
     resetGestureState();
-    
+
     // Note: Don't close handsInstance completely as it causes WASM re-init errors
     // Just stop processing frames by setting isMediaPipeRunning = false
     console.log('⏹️ MediaPipe components paused');
@@ -616,28 +681,28 @@ function resetGestureState() {
     prevPanPos = null;
     isHandActive = false;
     lastProcessTime = 0;
-    
+
     // Reset cursor state but keep it visible if enabled
     if (cursorEnabled) {
         cursorTargetX = window.innerWidth / 2;
         cursorTargetY = window.innerHeight / 2;
     }
-    
+
     console.log('🔄 Gesture state reset');
 }
 
 // Quick restart MediaPipe (for context switching)
 async function restartMediaPipe() {
     if (controlMode !== 'gesture') return;
-    
+
     console.log('🔄 Restarting MediaPipe...');
-    
+
     // If already running, just reset state
     if (isMediaPipeRunning) {
         resetGestureState();
         return;
     }
-    
+
     // If not running, start it
     await startMediaPipe();
 }

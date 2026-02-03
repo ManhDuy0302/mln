@@ -1045,8 +1045,11 @@ function animate() {
         lastFPSUpdate = currentTime;
     }
 
-    // PERFORMANCE: Skip all logic and rendering if 3D view is hidden
+    // PERFORMANCE: Skip all logic and rendering if 3D view is hidden or conclusion overlay is open
     if (!DOM.canvasContainer || DOM.canvasContainer.style.display === 'none') return;
+    
+    // Skip heavy rendering when conclusion overlay is showing (use cached DOM)
+    if (DOM.conclusionOverlay && DOM.conclusionOverlay.classList.contains('show')) return;
 
     // REMOVED: bgStars and particleSystem dead code (never created)
     // This saves 2-3ms per frame by eliminating unnecessary checks
@@ -1237,7 +1240,8 @@ const GESTURE_CONTEXT = {
     WELCOME: 'welcome',
     CAROUSEL: 'carousel',
     DETAIL: 'detail',
-    TIMELINE: 'timeline'
+    TIMELINE: 'timeline',
+    CONCLUSION: 'conclusion'
 };
 
 let currentGestureContext = null;
@@ -1608,6 +1612,9 @@ function selectCard(cardId) {
     currentActiveCard = cardId;
     currentGestureContext = GESTURE_CONTEXT.TIMELINE; // ✅ ADD
 
+    // ⭐ Hiển thị nút Kết luận khi vào Timeline view
+    document.getElementById('conclusion-btn').style.display = 'block';
+
     // ⭐ Reset gesture state when entering new context (fixes lag)
     if (controlMode === 'gesture' && typeof resetGestureState === 'function') {
         resetGestureState();
@@ -1644,6 +1651,9 @@ function exitTimelineView() {
 
     // Ẩn header
     document.getElementById('header').style.display = 'none';
+
+    // ⭐ Ẩn nút Kết luận khi thoát Timeline
+    document.getElementById('conclusion-btn').style.display = 'none';
 
     // Hiện lại carousel
     document.getElementById('node-cards-container').style.display = 'flex';
@@ -1690,6 +1700,12 @@ function resetToWelcome() {
 
 // Global back button navigation
 function goBack() {
+    // ⭐ Nếu đang xem Conclusion → đóng conclusion trước
+    if (currentGestureContext === GESTURE_CONTEXT.CONCLUSION) {
+        closeConclusionOverlay();
+        return;
+    }
+    
     if (isInDetailView) {
         exitDetailView();
     } else if (currentActiveCard !== null) {
@@ -1698,6 +1714,37 @@ function goBack() {
         // Nếu đang ở Carousel (chưa chọn card nào) -> Về Welcome
         resetToWelcome();
     }
+}
+
+// ==========================================
+// CONCLUSION OVERLAY (Kết luận giai đoạn)
+// ==========================================
+function openConclusionOverlay() {
+    const overlay = document.getElementById('conclusion-overlay');
+    const contentDiv = document.getElementById('conclusion-content');
+    
+    // Lấy nội dung kết luận từ card hiện tại
+    if (currentActiveCard !== null) {
+        const card = timelineData.cards.find(c => c.id === currentActiveCard);
+        if (card && card.conclusion) {
+            contentDiv.innerHTML = card.conclusion;
+        } else {
+            contentDiv.innerHTML = '<p><em>Chưa có nội dung kết luận cho giai đoạn này.</em></p>';
+        }
+    }
+    
+    overlay.classList.add('show');
+    currentGestureContext = GESTURE_CONTEXT.CONCLUSION;
+    console.log('📝 Opened conclusion overlay');
+}
+
+function closeConclusionOverlay() {
+    const overlay = document.getElementById('conclusion-overlay');
+    overlay.classList.remove('show');
+    
+    // Quay lại Timeline context
+    currentGestureContext = GESTURE_CONTEXT.TIMELINE;
+    console.log('📝 Closed conclusion overlay');
 }
 
 // --- SYSTEM CONTROL MOVED TO gesture.js OR CONSOLIDATED ---
